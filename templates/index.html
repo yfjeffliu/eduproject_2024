@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>2024 工業物聯網 DASHBOARD</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        #charts {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 定義兩列 */
+            grid-gap: 10px; /* 定義網格間隙 */
+        }
+        .chart-container {
+            width: 100%; /* 寬度為100% 用來填滿網格單元 */
+            height: 400px; /* 高度設定為400px，或根據需要調整 */
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important; /* 重要！覆蓋canvas默認大小，並且適應容器大小 */
+        }
+    </style>
+</head>
+<body>
+    <input type="text" id="user" placeholder="請輸入組別">
+    <button onclick="fetchData()">獲取數據</button>
+    <div id="charts"></div>
+    
+    <script>
+        async function fetchData() {
+            const user = document.getElementById('user').value;
+            const response = await fetch('/get_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({user: user})
+            });
+           
+            const data = await response.json();
+            console.log(data)
+            const chartsContainer = document.getElementById('charts');
+            chartsContainer.innerHTML = ''; // 清空先前的圖表
+
+            Object.entries(data).forEach(([key, {time, value}], index) => {
+                const containerId = `container-${index}`;
+                const canvasId = `chart-${index}`;
+                
+                const chartContainer = document.createElement('div');
+                chartContainer.className = 'chart-container';
+                chartContainer.id = containerId;
+                const canvasElement = `<canvas id="${canvasId}"></canvas>`;
+                chartContainer.innerHTML = canvasElement;
+                
+                chartsContainer.appendChild(chartContainer);
+                
+                const ctx = document.getElementById(canvasId).getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: time.map(t => new Date(t)),
+                        datasets: [{
+                            label: `${key}`,
+                            data: value,
+                            fill: false,
+                            borderColor: `rgb(${Math.random()*255}, ${Math.random()*255}, ${Math.random()*255})`,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false, // 根據需要開啟或關閉
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'minute', // 或者其他更小的單位，如果需要
+                                    tooltipFormat: 'yyyy-MM-dd HH:mm:ss',
+                                    displayFormats: {
+                                        minute: 'HH:mm' // 根據需要顯示的時間間隔格式化
+                                    }
+                                },
+                                ticks: {
+                                    display: true,
+                                    autoSkip: false, // 禁用自動跳過
+                                    maxTicksLimit: 15, // 增加最大刻度數量
+                                    maxRotation: 0, // 避免標籤旋轉
+                                    minRotation: 0
+                                },
+                                // 確保刻度不被剪裁
+                                grid: {
+                                    drawOnChartArea: true // 如果需要在圖表區域繪製網格線
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '值'
+                                }
+                            }
+                        },
+                        tooltips: {
+                            enabled: true, // 啟用工具提示
+                            mode: 'index', // 或者 'point' 根據需求
+                            intersect: false // 是否要在交點處顯示工具提示
+                        },
+                        hover: {
+                            mode: 'nearest', // 當懸停時，高亮最近的點
+                            intersect: true // 只有當直接懸停在點上時才顯示樣式
+                        },
+                        elements: {
+                            point: {
+                                radius: 5, // 正常狀態下點的半徑
+                                hoverRadius: 8, // 懸停狀態下點的半徑
+                                hoverBorderWidth: 2 // 懸停狀態下點的邊框寬度
+                            }
+                        },
+                        onClick: function(e) {
+                            const activePoints = myChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+                            if (activePoints.length > 0) {
+                                const firstPoint = activePoints[0];
+                                const label = myChart.data.labels[firstPoint.index];
+                                const value = myChart.data.datasets[firstPoint.datasetIndex].data[firstPoint.index];
+                                // 根據需求處理點擊事件，如彈出詳細信息
+                                alert(`Label: ${label}, Value: ${value}`);
+                            }
+                        }
+                    }
+                    
+                    
+                });
+            });
+        }
+    </script>
+</body>
+</html>
